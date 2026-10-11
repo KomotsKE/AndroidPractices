@@ -1,8 +1,9 @@
 package com.example.androidpractices.data.repository
 
-import com.example.androidpractices.data.model.Brewery
-import com.example.androidpractices.data.model.BreweryListItem
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.Brewery
+import com.example.androidpractices.domain.model.BreweryListItem
+import com.example.androidpractices.domain.model.BreweryType
+import com.example.androidpractices.domain.repository.BreweryRepository
 import com.example.androidpractices.data.remote.BreweryDto
 import com.example.androidpractices.data.remote.toDomain
 import kotlinx.coroutines.delay

@@ -1,28 +1,30 @@
 package com.example.androidpractices.data.remote
 
-import com.example.androidpractices.data.model.Brewery
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.Brewery
+import com.example.androidpractices.domain.model.BreweryType
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Модель ответа Open Brewery DB (https://www.openbrewerydb.org/documentation).
- * Имена полей в JSON — в snake_case, указаны в комментариях; в следующей практике
- * сюда добавятся аннотации сериализации (@SerialName).
+ * Все поля, кроме id и name, API может вернуть как null.
  */
+@Serializable
 data class BreweryDto(
     val id: String,
     val name: String,
-    val breweryType: String?,   // brewery_type
-    val address1: String?,      // address_1
-    val address2: String? = null, // address_2
-    val address3: String? = null, // address_3
-    val city: String?,          // city
-    val stateProvince: String?, // state_province
-    val postalCode: String?,    // postal_code
-    val country: String?,       // country
-    val longitude: Double?,     // longitude
-    val latitude: Double?,      // latitude
-    val phone: String?,         // phone
-    val websiteUrl: String?,    // website_url
+    @SerialName("brewery_type") val breweryType: String? = null,
+    @SerialName("address_1") val address1: String? = null,
+    @SerialName("address_2") val address2: String? = null,
+    @SerialName("address_3") val address3: String? = null,
+    val city: String? = null,
+    @SerialName("state_province") val stateProvince: String? = null,
+    @SerialName("postal_code") val postalCode: String? = null,
+    val country: String? = null,
+    val longitude: Double? = null,
+    val latitude: Double? = null,
+    val phone: String? = null,
+    @SerialName("website_url") val websiteUrl: String? = null,
 )
 
 fun BreweryDto.toDomain(): Brewery = Brewery(

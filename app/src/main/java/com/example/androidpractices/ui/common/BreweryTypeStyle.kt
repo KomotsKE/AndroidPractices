@@ -15,7 +15,7 @@ import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.BreweryType
 
 /** Визуальный стиль типа пивоварни: градиент и иконка. */
 data class BreweryTypeStyle(

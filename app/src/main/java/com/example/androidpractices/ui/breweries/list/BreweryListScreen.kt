@@ -66,8 +66,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.androidpractices.data.model.BreweryListItem
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.BreweryListItem
+import com.example.androidpractices.domain.model.BreweryType
 import com.example.androidpractices.di.ServiceLocator
 import com.example.androidpractices.ui.common.BreweryCard
 import com.example.androidpractices.ui.common.MessageState
@@ -80,7 +80,7 @@ import kotlinx.coroutines.launch
 fun BreweryListRoute(
     onBreweryClick: (String) -> Unit,
     viewModel: BreweryListViewModel = viewModel {
-        BreweryListViewModel(ServiceLocator.breweryRepository, ServiceLocator.favoritesRepository)
+        BreweryListViewModel(ServiceLocator.getBreweries, ServiceLocator.favoritesRepository)
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -274,7 +274,7 @@ private fun SearchField(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth(),
-        placeholder = { Text("Название, город или штат") },
+        placeholder = { Text("Название пивоварни") },
         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {

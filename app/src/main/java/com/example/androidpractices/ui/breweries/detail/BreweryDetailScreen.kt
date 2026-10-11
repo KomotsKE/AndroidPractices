@@ -71,8 +71,8 @@ import androidx.constraintlayout.compose.Dimension
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.androidpractices.data.model.Brewery
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.Brewery
+import com.example.androidpractices.domain.model.BreweryType
 import com.example.androidpractices.di.ServiceLocator
 import com.example.androidpractices.ui.common.BreweryAvatar
 import com.example.androidpractices.ui.common.BreweryTypeBadge
@@ -93,7 +93,7 @@ fun BreweryDetailRoute(
     viewModel: BreweryDetailViewModel = viewModel {
         BreweryDetailViewModel(
             savedStateHandle = createSavedStateHandle(),
-            repository = ServiceLocator.breweryRepository,
+            getBreweryDetails = ServiceLocator.getBreweryDetails,
             favoritesRepository = ServiceLocator.favoritesRepository,
         )
     },

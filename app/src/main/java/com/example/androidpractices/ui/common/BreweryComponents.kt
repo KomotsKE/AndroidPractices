@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.androidpractices.data.model.BreweryListItem
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.BreweryListItem
+import com.example.androidpractices.domain.model.BreweryType
 import com.example.androidpractices.ui.theme.AndroidPracticesTheme
 
 /** Цветной «аватар» пивоварни с монограммой — картинок в API нет. */

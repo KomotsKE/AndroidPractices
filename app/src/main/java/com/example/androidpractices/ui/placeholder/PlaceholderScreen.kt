@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.chuckerteam.chucker.api.Chucker
 import com.example.androidpractices.ui.common.MessageState
 
 /** Экран-заглушка для вкладок, которые появятся в следующих практиках. */
@@ -28,6 +30,7 @@ fun PlaceholderScreen(
     message: String,
     comingIn: String,
 ) {
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -47,9 +50,15 @@ fun PlaceholderScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 MessageState(icon = icon, title = headline, message = message)
                 AssistChip(
-                    onClick = {},
-                    label = { Text(comingIn) },
-                    modifier = Modifier.padding(bottom = 48.dp),
+                    onClick = {
+                        try {
+                            context.startActivity(Chucker.getLaunchIntent(context))
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    },
+                    label = { Text("Логи сети (Chucker)") },
+                    modifier = Modifier.padding(bottom = 16.dp),
                 )
             }
         }
