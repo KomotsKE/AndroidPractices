@@ -2,10 +2,11 @@ package com.example.androidpractices.ui.breweries.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.androidpractices.data.model.BreweryListItem
-import com.example.androidpractices.data.model.BreweryType
-import com.example.androidpractices.data.repository.BreweryRepository
-import com.example.androidpractices.data.repository.FavoritesRepository
+import com.example.androidpractices.domain.model.BreweryListItem
+import com.example.androidpractices.domain.model.BreweryType
+import com.example.androidpractices.domain.usecase.GetBreweriesUseCase
+import com.example.androidpractices.domain.repository.FavoritesRepository
+import com.example.androidpractices.ui.common.toUserMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -32,7 +33,7 @@ data class BreweryListUiState(
 )
 
 class BreweryListViewModel(
-    private val repository: BreweryRepository,
+    private val getBreweries: GetBreweriesUseCase,
     favoritesRepository: FavoritesRepository,
 ) : ViewModel() {
 
@@ -119,16 +120,13 @@ class BreweryListViewModel(
 
     private suspend fun fetch(page: Int): List<BreweryListItem> {
         val current = state.value
-        return repository.getBreweries(
+        return getBreweries(
             page = page,
             perPage = PAGE_SIZE,
             query = current.query.takeIf { it.isNotBlank() },
             type = current.selectedType,
         )
     }
-
-    private fun Exception.toUserMessage(): String =
-        message?.takeIf { it.isNotBlank() } ?: "Не удалось загрузить пивоварни"
 
     companion object {
         const val PAGE_SIZE = 10

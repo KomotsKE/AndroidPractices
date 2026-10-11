@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,11 +33,11 @@ import com.example.androidpractices.ui.common.MessageState
 fun FavoritesRoute(
     onBreweryClick: (String) -> Unit,
     viewModel: FavoritesViewModel = viewModel {
-        FavoritesViewModel(ServiceLocator.breweryRepository, ServiceLocator.favoritesRepository)
+        FavoritesViewModel(ServiceLocator.getBreweriesByIds, ServiceLocator.favoritesRepository)
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    FavoritesScreen(state = state, onBreweryClick = onBreweryClick)
+    FavoritesScreen(state = state, onBreweryClick = onBreweryClick, onRetry = viewModel::retry)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +45,7 @@ fun FavoritesRoute(
 fun FavoritesScreen(
     state: FavoritesUiState,
     onBreweryClick: (String) -> Unit,
+    onRetry: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -65,6 +67,19 @@ fun FavoritesScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
+            }
+
+            state.errorMessage != null && state.items.isEmpty() -> Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                MessageState(
+                    icon = Icons.Rounded.CloudOff,
+                    title = "Не удалось загрузить",
+                    message = state.errorMessage,
+                    actionLabel = "Повторить",
+                    onAction = onRetry,
+                )
             }
 
             state.items.isEmpty() -> Box(

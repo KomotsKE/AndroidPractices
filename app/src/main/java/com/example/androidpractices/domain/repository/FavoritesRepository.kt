@@ -1,4 +1,4 @@
-package com.example.androidpractices.data.repository
+package com.example.androidpractices.domain.repository
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

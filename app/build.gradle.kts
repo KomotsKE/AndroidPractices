@@ -2,6 +2,7 @@ plugins {
 
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -52,7 +53,18 @@ dependencies {
     implementation(libs.androidx.constraintlayout.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    // Сеть
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
+    // Просмотр запросов прямо на устройстве (в release — пустая заглушка)
+    debugImplementation(libs.chucker)
+    releaseImplementation(libs.chucker.no.op)
+
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }

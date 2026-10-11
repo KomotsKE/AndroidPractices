@@ -1,6 +1,6 @@
 package com.example.androidpractices
 
-import com.example.androidpractices.data.model.BreweryType
+import com.example.androidpractices.domain.model.BreweryType
 import com.example.androidpractices.data.repository.MockBreweries
 import com.example.androidpractices.data.repository.MockBreweryRepository
 import com.example.androidpractices.ui.common.formatPhone

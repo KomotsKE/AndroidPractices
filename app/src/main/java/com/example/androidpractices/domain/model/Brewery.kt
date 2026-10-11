@@ -1,4 +1,4 @@
-package com.example.androidpractices.data.model
+package com.example.androidpractices.domain.model
 
 /**
  * Краткая модель для списка: только то, что нужно показать в карточке.

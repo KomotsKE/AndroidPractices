@@ -1,4 +1,4 @@
-package com.example.androidpractices.data.model
+package com.example.androidpractices.domain.model
 
 /**
  * Тип пивоварни. [apiValue] совпадает со значением поля `brewery_type` в Open Brewery DB
