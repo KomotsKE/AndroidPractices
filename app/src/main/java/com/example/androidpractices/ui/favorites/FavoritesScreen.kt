@@ -2,13 +2,13 @@ package com.example.androidpractices.ui.favorites
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,11 +33,11 @@ import com.example.androidpractices.ui.common.MessageState
 fun FavoritesRoute(
     onBreweryClick: (String) -> Unit,
     viewModel: FavoritesViewModel = viewModel {
-        FavoritesViewModel(ServiceLocator.getBreweriesByIds, ServiceLocator.favoritesRepository)
+        FavoritesViewModel(ServiceLocator.favoritesRepository)
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    FavoritesScreen(state = state, onBreweryClick = onBreweryClick, onRetry = viewModel::retry)
+    FavoritesScreen(state = state, onBreweryClick = onBreweryClick)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,14 +45,24 @@ fun FavoritesRoute(
 fun FavoritesScreen(
     state: FavoritesUiState,
     onBreweryClick: (String) -> Unit,
-    onRetry: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Избранное") },
+                title = {
+                    Column {
+                        Text("Избранное")
+                        if (state.items.isNotEmpty()) {
+                            Text(
+                                text = "${state.items.size} · доступно без интернета",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -69,19 +79,6 @@ fun FavoritesScreen(
                 CircularProgressIndicator()
             }
 
-            state.errorMessage != null && state.items.isEmpty() -> Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                MessageState(
-                    icon = Icons.Rounded.CloudOff,
-                    title = "Не удалось загрузить",
-                    message = state.errorMessage,
-                    actionLabel = "Повторить",
-                    onAction = onRetry,
-                )
-            }
-
             state.items.isEmpty() -> Box(
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center,
@@ -89,7 +86,7 @@ fun FavoritesScreen(
                 MessageState(
                     icon = Icons.Rounded.FavoriteBorder,
                     title = "Пока пусто",
-                    message = "Откройте пивоварню и нажмите ♥ — она появится здесь",
+                    message = "Откройте пивоварню и нажмите ♥ — она сохранится на устройстве и будет доступна даже без интернета",
                 )
             }
 

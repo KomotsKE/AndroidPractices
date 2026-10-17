@@ -27,6 +27,7 @@ class BreweryRepositoryImpl(
         perPage: Int,
         query: String?,
         type: BreweryType?,
+        state: String?,
     ): List<BreweryListItem> {
         require(page >= 1) { "page starts from 1" }
         return safeCall {
@@ -35,6 +36,7 @@ class BreweryRepositoryImpl(
                 perPage = perPage,
                 byName = query?.trim()?.takeIf { it.isNotEmpty() },
                 byType = type?.apiValue,
+                byState = state?.toStateParam(),
             ).map { it.toDomain().toListItem() }
         }
     }
@@ -69,6 +71,10 @@ class BreweryRepositoryImpl(
             throw e.toDomainException()
         }
     }
+
+    /** «New York» → «new_york»: так API ожидает пробелы в названии штата. */
+    private fun String.toStateParam(): String? =
+        trim().takeIf { it.isNotEmpty() }?.lowercase()?.replace(' ', '_')
 
     private companion object {
         const val MAX_PER_PAGE = 200
