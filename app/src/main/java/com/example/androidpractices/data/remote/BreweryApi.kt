@@ -13,6 +13,7 @@ interface BreweryApi {
      * @param perPage размер страницы (максимум 200)
      * @param byName поиск по названию
      * @param byType фильтр по типу ([com.example.androidpractices.domain.model.BreweryType.apiValue])
+     * @param byState штат, полное название через подчёркивание (`new_york`)
      * @param byIds id через запятую
      */
     @GET("breweries")
@@ -22,6 +23,7 @@ interface BreweryApi {
         @Query("by_name") byName: String? = null,
         @Query("by_type") byType: String? = null,
         @Query("by_ids") byIds: String? = null,
+        @Query("by_state") byState: String? = null,
     ): List<BreweryDto>
 
     @GET("breweries/{id}")

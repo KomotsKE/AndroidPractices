@@ -2,14 +2,15 @@ package com.example.androidpractices.ui.breweries.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.androidpractices.data.cache.FilterBadgeCache
+import com.example.androidpractices.domain.model.BreweryFilters
 import com.example.androidpractices.domain.model.BreweryListItem
-import com.example.androidpractices.domain.model.BreweryType
-import com.example.androidpractices.domain.usecase.GetBreweriesUseCase
 import com.example.androidpractices.domain.repository.FavoritesRepository
+import com.example.androidpractices.domain.repository.FiltersRepository
+import com.example.androidpractices.domain.usecase.GetBreweriesUseCase
 import com.example.androidpractices.ui.common.toUserMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,11 +21,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class BreweryListUiState(
-    val query: String = "",
-    val selectedType: BreweryType? = null,
+    /** Сохранённые фильтры, с которыми загружен список. */
+    val filters: BreweryFilters = BreweryFilters.Default,
+    /** Бейдж на кнопке фильтров — из общего [FilterBadgeCache]. */
+    val showFilterBadge: Boolean = false,
     val items: List<BreweryListItem> = emptyList(),
     val favoriteIds: Set<String> = emptySet(),
-    /** Первая страница (или перезагрузка после смены фильтра). */
+    /** Первая страница (или перезагрузка после смены фильтров). */
     val isLoading: Boolean = true,
     /** Следующая страница при прокрутке. */
     val isLoadingMore: Boolean = false,
@@ -35,13 +38,19 @@ data class BreweryListUiState(
 class BreweryListViewModel(
     private val getBreweries: GetBreweriesUseCase,
     favoritesRepository: FavoritesRepository,
+    private val filtersRepository: FiltersRepository,
+    private val badgeCache: FilterBadgeCache,
 ) : ViewModel() {
 
     private val state = MutableStateFlow(BreweryListUiState())
 
     val uiState: StateFlow<BreweryListUiState> =
-        combine(state.asStateFlow(), favoritesRepository.ids) { s, favorites ->
-            s.copy(favoriteIds = favorites)
+        combine(
+            state.asStateFlow(),
+            favoritesRepository.ids,
+            badgeCache.showBadge,
+        ) { s, favorites, showBadge ->
+            s.copy(favoriteIds = favorites, showFilterBadge = showBadge)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -52,20 +61,26 @@ class BreweryListViewModel(
     private var loadJob: Job? = null
 
     init {
-        reload()
+        // Первое значение — фильтры из DataStore (переживают перезапуск приложения),
+        // каждое следующее — после «Готово» на экране фильтров. На каждое — перезагрузка.
+        viewModelScope.launch {
+            filtersRepository.filters.collect { filters ->
+                // Бейдж долгосрочно не храним: после перезапуска вычисляем его заново.
+                badgeCache.update(showBadge = !filters.isDefault)
+                state.update { it.copy(filters = filters) }
+                reload()
+            }
+        }
     }
 
-    fun onQueryChange(query: String) {
-        if (query == state.value.query) return
-        state.update { it.copy(query = query) }
-        reload(debounceMs = SEARCH_DEBOUNCE_MS)
-    }
+    /** Убрать один фильтр прямо из списка (крестик на чипе). */
+    fun clearQuery() = saveFilters { it.copy(query = "") }
 
-    fun onTypeSelected(type: BreweryType?) {
-        if (type == state.value.selectedType) return
-        state.update { it.copy(selectedType = type) }
-        reload()
-    }
+    fun clearState() = saveFilters { it.copy(state = null) }
+
+    fun clearType() = saveFilters { it.copy(type = null) }
+
+    fun resetFilters() = saveFilters { BreweryFilters.Default }
 
     fun retry() {
         if (state.value.items.isEmpty()) reload() else loadNextPage()
@@ -95,13 +110,19 @@ class BreweryListViewModel(
         }
     }
 
-    private fun reload(debounceMs: Long = 0) {
+    private fun saveFilters(transform: (BreweryFilters) -> BreweryFilters) {
+        viewModelScope.launch {
+            // Сохранение в DataStore само вызовет перезагрузку через подписку в init.
+            filtersRepository.save(transform(state.value.filters))
+        }
+    }
+
+    private fun reload() {
         loadJob?.cancel()
         state.update {
             it.copy(isLoading = true, isLoadingMore = false, endReached = false, errorMessage = null)
         }
         loadJob = viewModelScope.launch {
-            if (debounceMs > 0) delay(debounceMs)
             try {
                 val result = fetch(page = 1)
                 loadedPage = 1
@@ -118,18 +139,10 @@ class BreweryListViewModel(
         }
     }
 
-    private suspend fun fetch(page: Int): List<BreweryListItem> {
-        val current = state.value
-        return getBreweries(
-            page = page,
-            perPage = PAGE_SIZE,
-            query = current.query.takeIf { it.isNotBlank() },
-            type = current.selectedType,
-        )
-    }
+    private suspend fun fetch(page: Int): List<BreweryListItem> =
+        getBreweries(page = page, perPage = PAGE_SIZE, filters = state.value.filters)
 
     companion object {
         const val PAGE_SIZE = 10
-        private const val SEARCH_DEBOUNCE_MS = 350L
     }
 }
