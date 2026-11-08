@@ -23,6 +23,8 @@ import com.example.androidpractices.ui.breweries.list.BreweryListRoute
 import com.example.androidpractices.ui.favorites.FavoritesRoute
 import com.example.androidpractices.ui.filters.FiltersRoute
 import com.example.androidpractices.ui.placeholder.PlaceholderScreen
+import com.example.androidpractices.ui.profile.ProfileEditRoute
+import com.example.androidpractices.ui.profile.ProfileRoute
 
 private const val ANIM_MS = 300
 
@@ -98,6 +100,29 @@ fun AppNavHost(
                 message = "Фильтры списка уже работают: кнопка в правом верхнем углу вкладки «Пивоварни». Остальные настройки — в следующих практиках.",
                 comingIn = "Скоро",
             )
+        }
+
+        navigation(startDestination = Routes.PROFILE_VIEW, route = Routes.PROFILE_GRAPH) {
+            composable(Routes.PROFILE_VIEW) { entry ->
+                ProfileRoute(
+                    onEdit = {
+                        if (entry.isResumed()) navController.navigate(Routes.PROFILE_EDIT)
+                    },
+                )
+            }
+            composable(
+                route = Routes.PROFILE_EDIT,
+                enterTransition = {
+                    slideIntoContainer(SlideDirection.Up, tween(ANIM_MS)) + fadeIn(tween(ANIM_MS))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(SlideDirection.Down, tween(ANIM_MS)) + fadeOut(tween(ANIM_MS))
+                },
+            ) { entry ->
+                ProfileEditRoute(
+                    onClose = { if (entry.isResumed()) navController.popBackStack() },
+                )
+            }
         }
     }
 }

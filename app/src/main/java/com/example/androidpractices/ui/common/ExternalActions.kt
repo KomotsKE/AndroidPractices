@@ -18,6 +18,13 @@ fun Context.openMap(latitude: Double, longitude: Double, label: String) {
     startSafely(Intent(Intent.ACTION_VIEW, uri), "Нет приложения с картами")
 }
 
+fun Context.openFile(contentUri: String, mimeType: String) {
+    val intent = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(contentUri.toUri(), mimeType)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    startSafely(intent, "Нет приложения, чтобы открыть файл")
+}
+
 private fun Context.startSafely(intent: Intent, errorMessage: String) {
     try {
         startActivity(intent)
