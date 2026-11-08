@@ -24,12 +24,14 @@ class MockBreweryRepository(
         perPage: Int,
         query: String?,
         type: BreweryType?,
+        state: String?,
     ): List<BreweryListItem> {
         require(page >= 1) { "page starts from 1" }
         delay(networkDelayMs)
         val normalizedQuery = query?.trim()?.lowercase().orEmpty()
         return breweries.asSequence()
             .filter { type == null || it.type == type }
+            .filter { state == null || it.stateProvince.equals(state, ignoreCase = true) }
             .filter { brewery ->
                 normalizedQuery.isEmpty() ||
                     brewery.name.lowercase().contains(normalizedQuery) ||

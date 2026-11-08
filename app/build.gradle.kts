@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -62,6 +63,12 @@ dependencies {
     // Просмотр запросов прямо на устройстве (в release — пустая заглушка)
     debugImplementation(libs.chucker)
     releaseImplementation(libs.chucker.no.op)
+
+    // Локальное хранение: настройки фильтров (DataStore) и избранное (Room + KSP)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

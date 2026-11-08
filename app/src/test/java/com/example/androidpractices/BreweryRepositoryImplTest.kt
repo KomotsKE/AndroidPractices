@@ -28,6 +28,7 @@ class BreweryRepositoryImplTest {
         var single: (id: String) -> BreweryDto = { error("not stubbed") },
     ) : BreweryApi {
         var lastQuery: List<String?> = emptyList()
+        var lastState: String? = null
 
         override suspend fun getBreweries(
             page: Int,
@@ -35,8 +36,10 @@ class BreweryRepositoryImplTest {
             byName: String?,
             byType: String?,
             byIds: String?,
+            byState: String?,
         ): List<BreweryDto> {
             lastQuery = listOf(page.toString(), perPage.toString(), byName, byType, byIds)
+            lastState = byState
             return list(page, perPage, byName, byType, byIds)
         }
 
@@ -59,6 +62,15 @@ class BreweryRepositoryImplTest {
 
         assertEquals(listOf("2", "10", "sierra", "micro", null), api.lastQuery)
         assertEquals("1", result.single().id)
+    }
+
+    @Test
+    fun list_stateIsSentInApiFormat() = runTest {
+        val api = FakeApi()
+
+        repo(api).getBreweries(page = 1, perPage = 10, state = " New York ")
+
+        assertEquals("new_york", api.lastState)
     }
 
     @Test

@@ -20,7 +20,8 @@ import com.example.androidpractices.ui.navigation.AppNavHost
 @Composable
 fun BreweryApp() {
     val navController = rememberNavController()
-    val favoriteIds by ServiceLocator.favoritesRepository.ids.collectAsStateWithLifecycle()
+    val favoriteIds by ServiceLocator.favoritesRepository.ids
+        .collectAsStateWithLifecycle(initialValue = emptySet())
 
     Scaffold(
         bottomBar = { AppBottomBar(navController, favoritesCount = favoriteIds.size) },

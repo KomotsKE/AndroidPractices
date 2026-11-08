@@ -1,22 +1,26 @@
 package com.example.androidpractices.domain.repository
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.example.androidpractices.domain.model.Brewery
+import kotlinx.coroutines.flow.Flow
 
 /**
- * Избранное в памяти процесса. Сохранение на диск — задача следующих практик.
- * Порядок — в порядке добавления (Set в Kotlin — LinkedHashSet).
+ * Избранные пивоварни. Хранятся локально целиком (а не только id),
+ * поэтому список избранного и их детали доступны без интернета.
  */
-class FavoritesRepository {
+interface FavoritesRepository {
 
-    private val _ids = MutableStateFlow<Set<String>>(emptySet())
-    val ids: StateFlow<Set<String>> = _ids.asStateFlow()
+    /** Избранное, последние добавленные — первыми. */
+    val favorites: Flow<List<Brewery>>
 
-    fun isFavorite(id: String): Boolean = id in _ids.value
+    /** Только id — чтобы быстро отмечать сердечком карточки в общем списке. */
+    val ids: Flow<Set<String>>
 
-    fun toggle(id: String) {
-        _ids.update { current -> if (id in current) current - id else current + id }
-    }
+    /** Сохранённая копия пивоварни или `null`, если её нет в избранном. */
+    suspend fun get(id: String): Brewery?
+
+    /** Добавляет в избранное или убирает из него. */
+    suspend fun toggle(brewery: Brewery)
+
+    /** Обновляет сохранённую копию свежими данными с сервера (если пивоварня в избранном). */
+    suspend fun refresh(brewery: Brewery)
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.androidpractices.domain.model.Brewery
+import com.example.androidpractices.domain.model.BreweryException
 import com.example.androidpractices.domain.usecase.GetBreweryDetailsUseCase
 import com.example.androidpractices.domain.repository.FavoritesRepository
 import com.example.androidpractices.ui.common.toUserMessage
@@ -20,19 +21,26 @@ sealed interface BreweryDetailUiState {
     data object Loading : BreweryDetailUiState
     data object NotFound : BreweryDetailUiState
     data class Error(val message: String) : BreweryDetailUiState
-    data class Content(val brewery: Brewery, val isFavorite: Boolean) : BreweryDetailUiState
+    data class Content(
+        val brewery: Brewery,
+        val isFavorite: Boolean,
+        /** Сети нет — показана копия из избранного. */
+        val isOffline: Boolean = false,
+    ) : BreweryDetailUiState
 }
 
 private sealed interface LoadResult {
     data object Loading : LoadResult
     data object NotFound : LoadResult
     data class Error(val message: String) : LoadResult
-    data class Loaded(val brewery: Brewery) : LoadResult
+    data class Loaded(val brewery: Brewery, val isOffline: Boolean = false) : LoadResult
 }
 
 /**
  * id пивоварни приходит аргументом навигации и попадает в [SavedStateHandle]
  * (переживает и поворот экрана, и смерть процесса).
+ *
+ * Без интернета экран открывает копию из избранного (Room), если она есть.
  */
 class BreweryDetailViewModel(
     savedStateHandle: SavedStateHandle,
@@ -55,6 +63,7 @@ class BreweryDetailViewModel(
                 is LoadResult.Loaded -> BreweryDetailUiState.Content(
                     brewery = result.brewery,
                     isFavorite = result.brewery.id in favorites,
+                    isOffline = result.isOffline,
                 )
             }
         }.stateIn(
@@ -69,19 +78,34 @@ class BreweryDetailViewModel(
 
     fun retry() = load()
 
-    fun toggleFavorite() = favoritesRepository.toggle(breweryId)
+    fun toggleFavorite() {
+        val brewery = (loadResult.value as? LoadResult.Loaded)?.brewery ?: return
+        viewModelScope.launch { favoritesRepository.toggle(brewery) }
+    }
 
     private fun load() {
         loadResult.value = LoadResult.Loading
         viewModelScope.launch {
             loadResult.value = try {
-                getBreweryDetails(breweryId)
-                    ?.let { LoadResult.Loaded(it) }
-                    ?: LoadResult.NotFound
+                val brewery = getBreweryDetails(breweryId)
+                if (brewery != null) {
+                    // Если пивоварня в избранном — освежаем её локальную копию.
+                    favoritesRepository.refresh(brewery)
+                    LoadResult.Loaded(brewery)
+                } else {
+                    LoadResult.NotFound
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoadResult.Error(e.toUserMessage())
+                // Нет сети, но пивоварня в избранном — показываем сохранённую копию.
+                val cached = if (e is BreweryException.NoConnection || e is BreweryException.Timeout) {
+                    favoritesRepository.get(breweryId)
+                } else {
+                    null
+                }
+                cached?.let { LoadResult.Loaded(it, isOffline = true) }
+                    ?: LoadResult.Error(e.toUserMessage())
             }
         }
     }

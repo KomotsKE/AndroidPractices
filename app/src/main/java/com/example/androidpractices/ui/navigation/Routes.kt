@@ -19,6 +19,7 @@ object Routes {
     const val BREWERY_LIST = "breweries/list"
     const val BREWERY_DETAIL = "breweries/detail/{$ARG_BREWERY_ID}"
     fun breweryDetail(id: String) = "breweries/detail/$id"
+    const val BREWERY_FILTERS = "breweries/filters"
 
     // Вкладка «Избранное» — свой стек, детали открываются внутри вкладки.
     const val FAVORITES_GRAPH = "favorites"

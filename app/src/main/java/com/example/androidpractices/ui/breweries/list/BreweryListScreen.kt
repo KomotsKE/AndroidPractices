@@ -23,49 +23,54 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.androidpractices.domain.model.BreweryFilters
 import com.example.androidpractices.domain.model.BreweryListItem
 import com.example.androidpractices.domain.model.BreweryType
 import com.example.androidpractices.di.ServiceLocator
@@ -73,21 +78,29 @@ import com.example.androidpractices.ui.common.BreweryCard
 import com.example.androidpractices.ui.common.MessageState
 import com.example.androidpractices.ui.common.style
 import com.example.androidpractices.ui.theme.AndroidPracticesTheme
-import kotlinx.coroutines.launch
 
 /** Точка входа экрана: достаёт ViewModel и связывает её с UI. */
 @Composable
 fun BreweryListRoute(
     onBreweryClick: (String) -> Unit,
+    onOpenFilters: () -> Unit,
     viewModel: BreweryListViewModel = viewModel {
-        BreweryListViewModel(ServiceLocator.getBreweries, ServiceLocator.favoritesRepository)
+        BreweryListViewModel(
+            getBreweries = ServiceLocator.getBreweries,
+            favoritesRepository = ServiceLocator.favoritesRepository,
+            filtersRepository = ServiceLocator.filtersRepository,
+            badgeCache = ServiceLocator.filterBadgeCache,
+        )
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     BreweryListScreen(
         state = state,
-        onQueryChange = viewModel::onQueryChange,
-        onTypeSelected = viewModel::onTypeSelected,
+        onOpenFilters = onOpenFilters,
+        onClearQuery = viewModel::clearQuery,
+        onClearState = viewModel::clearState,
+        onClearType = viewModel::clearType,
+        onResetFilters = viewModel::resetFilters,
         onLoadMore = viewModel::loadNextPage,
         onRetry = viewModel::retry,
         onBreweryClick = onBreweryClick,
@@ -98,16 +111,28 @@ fun BreweryListRoute(
 @Composable
 fun BreweryListScreen(
     state: BreweryListUiState,
-    onQueryChange: (String) -> Unit,
-    onTypeSelected: (BreweryType?) -> Unit,
+    onOpenFilters: () -> Unit,
+    onClearQuery: () -> Unit,
+    onClearState: () -> Unit,
+    onClearType: () -> Unit,
+    onResetFilters: () -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onBreweryClick: (String) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val scrollToTop: () -> Unit = { scope.launch { listState.scrollToItem(0) } }
+
+    // Новые фильтры — новый список, начинаем сверху. Ключ сохраняем, чтобы при возврате
+    // с экрана деталей (экран заново входит в композицию) не сбрасывать прокрутку.
+    var shownFiltersKey by rememberSaveable { mutableStateOf(state.filters.toString()) }
+    LaunchedEffect(state.filters) {
+        val key = state.filters.toString()
+        if (key != shownFiltersKey) {
+            shownFiltersKey = key
+            listState.scrollToItem(0)
+        }
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -119,27 +144,31 @@ fun BreweryListScreen(
                 Column {
                     TopAppBar(
                         title = { Text("Пивоварни США") },
+                        actions = {
+                            FiltersButton(showBadge = state.showFilterBadge, onClick = onOpenFilters)
+                        },
                         scrollBehavior = scrollBehavior,
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
                             scrolledContainerColor = Color.Transparent,
                         ),
                     )
-                    SearchField(
-                        query = state.query,
-                        onQueryChange = {
-                            onQueryChange(it)
-                            scrollToTop()
-                        },
+                    SearchPill(
+                        filters = state.filters,
+                        onClick = onOpenFilters,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
-                    TypeFilterRow(
-                        selected = state.selectedType,
-                        onSelect = {
-                            onTypeSelected(it)
-                            scrollToTop()
-                        },
-                    )
+                    if (state.filters.isDefault) {
+                        Spacer(Modifier.height(8.dp))
+                    } else {
+                        ActiveFiltersRow(
+                            filters = state.filters,
+                            onClearQuery = onClearQuery,
+                            onClearState = onClearState,
+                            onClearType = onClearType,
+                            onReset = onResetFilters,
+                        )
+                    }
                     if (state.isLoading && state.items.isNotEmpty()) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(3.dp))
                     } else {
@@ -155,6 +184,7 @@ fun BreweryListScreen(
             contentPadding = innerPadding,
             onLoadMore = onLoadMore,
             onRetry = onRetry,
+            onResetFilters = onResetFilters,
             onBreweryClick = onBreweryClick,
         )
     }
@@ -167,6 +197,7 @@ private fun BreweryList(
     contentPadding: PaddingValues,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
+    onResetFilters: () -> Unit,
     onBreweryClick: (String) -> Unit,
 ) {
     // Подготовка к пагинации: когда до конца списка осталось 3 элемента — просим следующую страницу.
@@ -230,7 +261,9 @@ private fun BreweryList(
                 MessageState(
                     icon = Icons.Rounded.SearchOff,
                     title = "Ничего не нашлось",
-                    message = "Попробуйте изменить запрос или выбрать другой тип пивоварни",
+                    message = "Под выбранные фильтры не подходит ни одна пивоварня. Попробуйте ослабить условия",
+                    actionLabel = if (state.filters.isDefault) null else "Сбросить фильтры",
+                    onAction = if (state.filters.isDefault) null else onResetFilters,
                     modifier = Modifier.fillParentMaxWidth().padding(top = 48.dp),
                 )
             }
@@ -263,77 +296,137 @@ private fun ListFooter(state: BreweryListUiState, onRetry: () -> Unit) {
     }
 }
 
+/** Кнопка фильтров с бейджем-точкой, если фильтры отличаются от значений по умолчанию. */
 @Composable
-private fun SearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val focusManager = LocalFocusManager.current
-    TextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = { Text("Название пивоварни") },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Очистить поиск")
+private fun FiltersButton(showBadge: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        BadgedBox(
+            badge = {
+                if (showBadge) {
+                    Badge(containerColor = MaterialTheme.colorScheme.error)
                 }
-            }
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(28.dp),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-        ),
-    )
+            },
+        ) {
+            Icon(Icons.Rounded.Tune, contentDescription = if (showBadge) "Фильтры (изменены)" else "Фильтры")
+        }
+    }
 }
 
+/** «Строка поиска», которая открывает экран фильтров. */
 @Composable
-private fun TypeFilterRow(
-    selected: BreweryType?,
-    onSelect: (BreweryType?) -> Unit,
+private fun SearchPill(
+    filters: BreweryFilters,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().height(52.dp),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = filters.query.ifBlank { "Название, штат или тип" },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (filters.query.isBlank()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (!filters.isDefault) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = filters.activeCount.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Включённые фильтры чипами: крестик убирает один фильтр, «Сбросить» — все. */
+@Composable
+private fun ActiveFiltersRow(
+    filters: BreweryFilters,
+    onClearQuery: () -> Unit,
+    onClearState: () -> Unit,
+    onClearType: () -> Unit,
+    onReset: () -> Unit,
 ) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(key = "all") {
-            FilterChip(
-                selected = selected == null,
-                onClick = { onSelect(null) },
-                label = { Text("Все") },
-                leadingIcon = if (selected == null) {
-                    { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                } else {
-                    null
-                },
-            )
+        if (filters.query.isNotBlank()) {
+            item(key = "query") {
+                ActiveFilterChip(
+                    label = "«${filters.query.trim()}»",
+                    icon = Icons.Rounded.Search,
+                    onRemove = onClearQuery,
+                )
+            }
         }
-        items(items = BreweryType.filterable, key = { it.apiValue }) { type ->
-            val isSelected = type == selected
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSelect(if (isSelected) null else type) },
-                label = { Text(type.title) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = if (isSelected) Icons.Rounded.Check else type.style.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-            )
+        filters.state?.let { usState ->
+            item(key = "state") {
+                ActiveFilterChip(label = usState, icon = Icons.Rounded.Place, onRemove = onClearState)
+            }
+        }
+        filters.type?.let { type ->
+            item(key = "type") {
+                ActiveFilterChip(label = type.title, icon = type.style.icon, onRemove = onClearType)
+            }
+        }
+        if (filters.activeCount > 1) {
+            item(key = "reset") {
+                AssistChip(
+                    onClick = onReset,
+                    label = { Text("Сбросить все") },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun ActiveFilterChip(
+    label: String,
+    icon: ImageVector,
+    onRemove: () -> Unit,
+) {
+    InputChip(
+        selected = true,
+        onClick = onRemove,
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        trailingIcon = {
+            Icon(Icons.Rounded.Close, contentDescription = "Убрать фильтр", modifier = Modifier.size(18.dp))
+        },
+    )
 }
 
 @Composable
@@ -371,6 +464,8 @@ private fun BreweryListScreenPreview() {
     AndroidPracticesTheme {
         BreweryListScreen(
             state = BreweryListUiState(
+                filters = BreweryFilters(state = "California", type = BreweryType.REGIONAL),
+                showFilterBadge = true,
                 isLoading = false,
                 items = listOf(
                     BreweryListItem("1", "Sierra Nevada Brewing Co.", BreweryType.REGIONAL, "Chico", "California", "United States"),
@@ -379,8 +474,11 @@ private fun BreweryListScreenPreview() {
                 ),
                 endReached = true,
             ),
-            onQueryChange = {},
-            onTypeSelected = {},
+            onOpenFilters = {},
+            onClearQuery = {},
+            onClearState = {},
+            onClearType = {},
+            onResetFilters = {},
             onLoadMore = {},
             onRetry = {},
             onBreweryClick = {},

@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.example.androidpractices.ui.breweries.detail.BreweryDetailRoute
 import com.example.androidpractices.ui.breweries.list.BreweryListRoute
 import com.example.androidpractices.ui.favorites.FavoritesRoute
+import com.example.androidpractices.ui.filters.FiltersRoute
 import com.example.androidpractices.ui.placeholder.PlaceholderScreen
 
 private const val ANIM_MS = 300
@@ -46,9 +47,26 @@ fun AppNavHost(
                     onBreweryClick = { id ->
                         if (entry.isResumed()) navController.navigate(Routes.breweryDetail(id))
                     },
+                    onOpenFilters = {
+                        if (entry.isResumed()) navController.navigate(Routes.BREWERY_FILTERS)
+                    },
                 )
             }
             breweryDetailDestination(Routes.BREWERY_DETAIL, navController)
+            composable(
+                route = Routes.BREWERY_FILTERS,
+                // Фильтры выезжают снизу, как модальный экран.
+                enterTransition = {
+                    slideIntoContainer(SlideDirection.Up, tween(ANIM_MS)) + fadeIn(tween(ANIM_MS))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(SlideDirection.Down, tween(ANIM_MS)) + fadeOut(tween(ANIM_MS))
+                },
+            ) { entry ->
+                FiltersRoute(
+                    onClose = { if (entry.isResumed()) navController.popBackStack() },
+                )
+            }
         }
 
         navigation(startDestination = Routes.FAVORITES_LIST, route = Routes.FAVORITES_GRAPH) {
@@ -77,7 +95,7 @@ fun AppNavHost(
                 title = "Настройки",
                 icon = Icons.Rounded.Tune,
                 headline = "Настройки в пути",
-                message = "Любимый штат, тип пивоварен по умолчанию и другие настройки — в следующих практиках.",
+                message = "Фильтры списка уже работают: кнопка в правом верхнем углу вкладки «Пивоварни». Остальные настройки — в следующих практиках.",
                 comingIn = "Скоро",
             )
         }

@@ -150,7 +150,10 @@ fun BreweryDetailScreen(
                     )
                 }
 
-                is BreweryDetailUiState.Content -> BreweryDetailContent(brewery = current.brewery)
+                is BreweryDetailUiState.Content -> BreweryDetailContent(
+                    brewery = current.brewery,
+                    isOffline = current.isOffline,
+                )
             }
         }
 
@@ -196,7 +199,7 @@ private fun TopActions(
 }
 
 @Composable
-private fun BreweryDetailContent(brewery: Brewery) {
+private fun BreweryDetailContent(brewery: Brewery, isOffline: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -207,6 +210,7 @@ private fun BreweryDetailContent(brewery: Brewery) {
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (isOffline) OfflineBanner()
             AddressSection(brewery)
             ContactsSection(brewery)
             if (brewery.latitude != null && brewery.longitude != null) {
@@ -233,6 +237,34 @@ private fun BreweryDetailContent(brewery: Brewery) {
                     color = MaterialTheme.colorScheme.outline,
                 )
             }
+        }
+    }
+}
+
+/** Плашка «нет сети — показана сохранённая копия». */
+@Composable
+private fun OfflineBanner() {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.CloudOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Нет подключения — показаны данные, сохранённые в избранном",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
     }
 }
