@@ -11,9 +11,12 @@ data class UserProfile(
     val avatarUri: String? = null,
     /** Ссылка на файл резюме или портфолио, например PDF. */
     val resumeUrl: String = "",
+    /** Время начала любимой пары, ЧЧ:ММ. В это время приходит напоминание. */
+    val favoriteClassTime: String = "",
 ) {
     val isEmpty: Boolean
-        get() = fullName.isBlank() && position.isBlank() && avatarUri == null && resumeUrl.isBlank()
+        get() = fullName.isBlank() && position.isBlank() && avatarUri == null &&
+            resumeUrl.isBlank() && favoriteClassTime.isBlank()
 
     val hasResume: Boolean get() = resumeUrl.isNotBlank()
 
@@ -22,6 +25,7 @@ data class UserProfile(
         fullName = fullName.trim(),
         position = position.trim(),
         resumeUrl = normalizeResumeUrl(resumeUrl),
+        favoriteClassTime = favoriteClassTime.trim(),
     )
 
     companion object {

@@ -29,6 +29,7 @@ class ProfileRepositoryImpl(
                 position = prefs[KEY_POSITION].orEmpty(),
                 avatarUri = prefs[KEY_AVATAR_URI],
                 resumeUrl = prefs[KEY_RESUME_URL].orEmpty(),
+                favoriteClassTime = prefs[KEY_CLASS_TIME].orEmpty(),
             )
         }
         .distinctUntilChanged()
@@ -38,6 +39,7 @@ class ProfileRepositoryImpl(
             prefs[KEY_FULL_NAME] = profile.fullName
             prefs[KEY_POSITION] = profile.position
             prefs[KEY_RESUME_URL] = profile.resumeUrl
+            prefs[KEY_CLASS_TIME] = profile.favoriteClassTime
             val avatarUri = profile.avatarUri
             if (avatarUri == null) {
                 prefs.remove(KEY_AVATAR_URI)
@@ -54,5 +56,6 @@ class ProfileRepositoryImpl(
         private val KEY_POSITION = stringPreferencesKey("position")
         private val KEY_AVATAR_URI = stringPreferencesKey("avatar_uri")
         private val KEY_RESUME_URL = stringPreferencesKey("resume_url")
+        private val KEY_CLASS_TIME = stringPreferencesKey("favorite_class_time")
     }
 }

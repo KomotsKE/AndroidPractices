@@ -2,7 +2,9 @@ package com.example.androidpractices.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.androidpractices.domain.model.ClassTime
 import com.example.androidpractices.domain.model.UserProfile
+import com.example.androidpractices.domain.repository.ClassReminderScheduler
 import com.example.androidpractices.domain.repository.ProfileFilesRepository
 import com.example.androidpractices.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,11 +25,23 @@ data class ProfileEditUiState(
     val errorMessage: String? = null,
     /** Сохранено — экран можно закрывать. */
     val isDone: Boolean = false,
-)
+) {
+    /** Время пары обязательно: без него не на что ставить напоминание. */
+    val classTimeError: String?
+        get() = when {
+            draft.favoriteClassTime.isBlank() -> "Укажите время пары"
+            !ClassTime.isValid(draft.favoriteClassTime.trim()) -> "Нужен формат ЧЧ:ММ, например 09:30"
+            else -> null
+        }
+
+    val canSave: Boolean
+        get() = isLoaded && !isSaving && !isImportingAvatar && classTimeError == null
+}
 
 class ProfileEditViewModel(
     private val profileRepository: ProfileRepository,
     private val filesRepository: ProfileFilesRepository,
+    private val reminderScheduler: ClassReminderScheduler,
 ) : ViewModel() {
 
     private val state = MutableStateFlow(ProfileEditUiState())
@@ -53,6 +67,13 @@ class ProfileEditViewModel(
     fun onResumeUrlChange(value: String) {
         state.update { it.copy(draft = it.draft.copy(resumeUrl = value), isResumeUrlInvalid = false) }
     }
+
+    /** Ввод с клавиатуры: только цифры, двоеточие подставляется само. */
+    fun onClassTimeChange(value: String) =
+        editDraft { it.copy(favoriteClassTime = ClassTime.formatInput(value)) }
+
+    fun onClassTimePicked(hour: Int, minute: Int) =
+        editDraft { it.copy(favoriteClassTime = ClassTime(hour, minute).toString()) }
 
     /** Файл для камеры; null, если создать его не удалось (ошибка уже показана). */
     suspend fun createCameraTarget(): String? =
@@ -81,8 +102,9 @@ class ProfileEditViewModel(
 
     fun save() {
         val current = state.value
-        if (!current.isLoaded || current.isSaving || current.isImportingAvatar) return
+        if (!current.canSave) return
         val profile = current.draft.normalized()
+        val classTime = ClassTime.parse(profile.favoriteClassTime) ?: return
         if (!UserProfile.isValidResumeUrl(profile.resumeUrl)) {
             state.update { it.copy(isResumeUrlInvalid = true) }
             return
@@ -92,6 +114,7 @@ class ProfileEditViewModel(
             try {
                 profileRepository.save(profile)
                 filesRepository.deleteUnusedAvatars(keepUri = profile.avatarUri)
+                reminderScheduler.schedule(classTime, ownerName = profile.fullName)
                 state.update { it.copy(draft = profile, isSaving = false, isDone = true) }
             } catch (e: IOException) {
                 state.update { it.copy(isSaving = false, errorMessage = "Не удалось сохранить профиль") }

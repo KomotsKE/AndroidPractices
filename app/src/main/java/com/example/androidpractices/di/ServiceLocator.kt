@@ -15,6 +15,7 @@ import com.example.androidpractices.data.repository.FiltersRepositoryImpl
 import com.example.androidpractices.data.repository.ProfileFilesRepositoryImpl
 import com.example.androidpractices.data.repository.ProfileRepositoryImpl
 import com.example.androidpractices.domain.repository.BreweryRepository
+import com.example.androidpractices.domain.repository.ClassReminderScheduler
 import com.example.androidpractices.domain.repository.FavoritesRepository
 import com.example.androidpractices.domain.repository.FiltersRepository
 import com.example.androidpractices.domain.repository.ProfileFilesRepository
@@ -22,6 +23,7 @@ import com.example.androidpractices.domain.repository.ProfileRepository
 import com.example.androidpractices.domain.usecase.DownloadResumeUseCase
 import com.example.androidpractices.domain.usecase.GetBreweriesUseCase
 import com.example.androidpractices.domain.usecase.GetBreweryDetailsUseCase
+import com.example.androidpractices.notifications.AlarmClassReminderScheduler
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -103,4 +105,6 @@ object ServiceLocator {
         ProfileFilesRepositoryImpl(appContext, downloadClient)
     }
     val downloadResume by lazy { DownloadResumeUseCase(profileFilesRepository) }
+
+    val classReminderScheduler: ClassReminderScheduler by lazy { AlarmClassReminderScheduler(appContext) }
 }

@@ -3,6 +3,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Точное время напоминания о паре: до Android 13 — SCHEDULE_EXACT_ALARM, дальше USE_EXACT_ALARM. -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!-- Камера необязательна: без неё приложение ставится, а профиль работает с галереей. -->
     <uses-feature
@@ -29,6 +34,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".notifications.ClassReminderReceiver"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -1,6 +1,9 @@
 package com.example.androidpractices.ui.profile
 
+import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -22,13 +25,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,8 +49,11 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,20 +67,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.androidpractices.di.ServiceLocator
+import com.example.androidpractices.domain.model.ClassTime
 import kotlinx.coroutines.launch
 
 /**
- * Разрешения в этой практике не запрашиваются (допущено обновлением задания от 10.2026):
+ * Разрешения на фото не запрашиваются (допущено обновлением задания от 10.2026):
  * - галерея открывается через Photo Picker (PickVisualMedia): приложение получает доступ
  *   только к выбранному снимку, READ_MEDIA_IMAGES и READ_EXTERNAL_STORAGE не нужны;
  * - камера вызывается через TakePicture, снимок делает системное приложение и пишет его
  *   в файл из FileProvider. CAMERA в манифесте нет, поэтому запрашивать его не требуется.
+ *
+ * POST_NOTIFICATIONS (Android 13+) спрашивается при сохранении — без него не придёт
+ * напоминание о любимой паре. Отказ не мешает сохранить профиль.
  *
  * TODO перед сдачей: указать версии Android, на которых проверены галерея и камера.
  */
@@ -79,7 +96,11 @@ import kotlinx.coroutines.launch
 fun ProfileEditRoute(
     onClose: () -> Unit,
     viewModel: ProfileEditViewModel = viewModel {
-        ProfileEditViewModel(ServiceLocator.profileRepository, ServiceLocator.profileFilesRepository)
+        ProfileEditViewModel(
+            ServiceLocator.profileRepository,
+            ServiceLocator.profileFilesRepository,
+            ServiceLocator.classReminderScheduler,
+        )
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -102,6 +123,12 @@ fun ProfileEditRoute(
         pendingCameraUri = null
     }
 
+    // Профиль сохраняется при любом ответе: без разрешения просто не будет уведомления,
+    // а профиль покажет, что их нужно включить.
+    val requestNotifications = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { viewModel.save() }
+
     LaunchedEffect(state.isDone) {
         if (state.isDone) onClose()
     }
@@ -119,6 +146,8 @@ fun ProfileEditRoute(
         onFullNameChange = viewModel::onFullNameChange,
         onPositionChange = viewModel::onPositionChange,
         onResumeUrlChange = viewModel::onResumeUrlChange,
+        onClassTimeChange = viewModel::onClassTimeChange,
+        onClassTimePicked = viewModel::onClassTimePicked,
         onPickFromGallery = {
             pickImage.launch(
                 PickVisualMediaRequest(mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly),
@@ -136,7 +165,16 @@ fun ProfileEditRoute(
                 }
             }
         },
-        onDone = viewModel::save,
+        onDone = {
+            val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            if (needsPermission) {
+                requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.save()
+            }
+        },
     )
 }
 
@@ -149,11 +187,14 @@ fun ProfileEditScreen(
     onFullNameChange: (String) -> Unit,
     onPositionChange: (String) -> Unit,
     onResumeUrlChange: (String) -> Unit,
+    onClassTimeChange: (String) -> Unit,
+    onClassTimePicked: (hour: Int, minute: Int) -> Unit,
     onPickFromGallery: () -> Unit,
     onTakePhoto: () -> Unit,
     onDone: () -> Unit,
 ) {
     var showSourceSheet by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -174,7 +215,7 @@ fun ProfileEditScreen(
             Surface(tonalElevation = 3.dp) {
                 Button(
                     onClick = onDone,
-                    enabled = state.isLoaded && !state.isSaving && !state.isImportingAvatar,
+                    enabled = state.canSave,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -231,8 +272,27 @@ fun ProfileEditScreen(
                     keyboardType = KeyboardType.Uri,
                     errorText = "Укажите корректную ссылку https://…".takeIf { state.isResumeUrlInvalid },
                 )
+                ClassTimeField(
+                    value = state.draft.favoriteClassTime,
+                    errorText = state.classTimeError,
+                    onValueChange = onClassTimeChange,
+                    onPickerClick = { showTimePicker = true },
+                )
             }
         }
+    }
+
+    if (showTimePicker) {
+        val initial = ClassTime.parse(state.draft.favoriteClassTime)
+        ClassTimePickerDialog(
+            initialHour = initial?.hour ?: 9,
+            initialMinute = initial?.minute ?: 0,
+            onConfirm = { hour, minute ->
+                showTimePicker = false
+                onClassTimePicked(hour, minute)
+            },
+            onDismiss = { showTimePicker = false },
+        )
     }
 
     if (showSourceSheet) {
@@ -317,6 +377,80 @@ private fun ProfileTextField(
         supportingText = if (errorText != null) { { Text(errorText) } } else null,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * Время пары: можно набрать цифрами (двоеточие появится само) или выбрать на циферблате.
+ * Своё [TextFieldValue] нужно, чтобы после подстановки двоеточия курсор оставался в конце.
+ */
+@Composable
+private fun ClassTimeField(
+    value: String,
+    errorText: String?,
+    onValueChange: (String) -> Unit,
+    onPickerClick: () -> Unit,
+) {
+    var fieldValue by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    // Значение могло прийти снаружи (циферблат, загрузка профиля) — тогда курсор в конец.
+    val shown = if (fieldValue.text == value) fieldValue else TextFieldValue(value, TextRange(value.length))
+
+    OutlinedTextField(
+        value = shown,
+        onValueChange = { newValue ->
+            val formatted = ClassTime.formatInput(newValue.text)
+            fieldValue = if (formatted == newValue.text) {
+                newValue
+            } else {
+                TextFieldValue(formatted, TextRange(formatted.length))
+            }
+            onValueChange(formatted)
+        },
+        label = { Text("Время любимой пары") },
+        placeholder = { Text("ЧЧ:ММ") },
+        leadingIcon = { Icon(Icons.Rounded.School, contentDescription = null) },
+        trailingIcon = {
+            IconButton(onClick = onPickerClick) {
+                Icon(Icons.Rounded.AccessTime, contentDescription = "Выбрать время на часах")
+            }
+        },
+        singleLine = true,
+        isError = errorText != null,
+        supportingText = {
+            Text(errorText ?: "В это время придёт напоминание о начале пары")
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ClassTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onConfirm: (hour: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val pickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Начало пары") },
+        text = {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                TimePicker(state = pickerState)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(pickerState.hour, pickerState.minute) }) { Text("Готово") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
     )
 }
 

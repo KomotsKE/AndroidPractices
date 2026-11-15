@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.core.net.toUri
 
@@ -23,6 +25,17 @@ fun Context.openFile(contentUri: String, mimeType: String) {
         .setDataAndType(contentUri.toUri(), mimeType)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     startSafely(intent, "Нет приложения, чтобы открыть файл")
+}
+
+/** Настройки уведомлений приложения; до Android 8 — общая карточка приложения. */
+fun Context.openNotificationSettings() {
+    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+    } else {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri())
+    }
+    startSafely(intent, "Не удалось открыть настройки")
 }
 
 private fun Context.startSafely(intent: Intent, errorMessage: String) {
