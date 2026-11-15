@@ -3,10 +3,12 @@ package com.example.androidpractices.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SportsBar
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SportsBar
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -29,6 +31,11 @@ object Routes {
 
     const val MAP = "map"
     const val SETTINGS = "settings"
+
+    // Вкладка «Профиль» — свой стек: просмотр → редактирование.
+    const val PROFILE_GRAPH = "profile"
+    const val PROFILE_VIEW = "profile/view"
+    const val PROFILE_EDIT = "profile/edit"
 }
 
 /** Вкладки нижней навигации. */
@@ -68,5 +75,12 @@ enum class TopLevelDestination(
         label = "Настройки",
         selectedIcon = Icons.Rounded.Settings,
         unselectedIcon = Icons.Outlined.Settings,
+    ),
+    PROFILE(
+        route = Routes.PROFILE_GRAPH,
+        startRoute = Routes.PROFILE_VIEW,
+        label = "Профиль",
+        selectedIcon = Icons.Rounded.Person,
+        unselectedIcon = Icons.Outlined.Person,
     ),
 }

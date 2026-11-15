@@ -12,11 +12,18 @@ import com.example.androidpractices.data.remote.BreweryApi
 import com.example.androidpractices.data.repository.BreweryRepositoryImpl
 import com.example.androidpractices.data.repository.FavoritesRepositoryImpl
 import com.example.androidpractices.data.repository.FiltersRepositoryImpl
+import com.example.androidpractices.data.repository.ProfileFilesRepositoryImpl
+import com.example.androidpractices.data.repository.ProfileRepositoryImpl
 import com.example.androidpractices.domain.repository.BreweryRepository
+import com.example.androidpractices.domain.repository.ClassReminderScheduler
 import com.example.androidpractices.domain.repository.FavoritesRepository
 import com.example.androidpractices.domain.repository.FiltersRepository
+import com.example.androidpractices.domain.repository.ProfileFilesRepository
+import com.example.androidpractices.domain.repository.ProfileRepository
+import com.example.androidpractices.domain.usecase.DownloadResumeUseCase
 import com.example.androidpractices.domain.usecase.GetBreweriesUseCase
 import com.example.androidpractices.domain.usecase.GetBreweryDetailsUseCase
+import com.example.androidpractices.notifications.AlarmClassReminderScheduler
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -27,6 +34,10 @@ import java.util.concurrent.TimeUnit
 /** DataStore должен быть единственным на файл — поэтому делегат на уровне файла. */
 private val Context.filtersDataStore: DataStore<Preferences> by preferencesDataStore(
     name = FiltersRepositoryImpl.DATASTORE_NAME,
+)
+
+private val Context.profileDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = ProfileRepositoryImpl.DATASTORE_NAME,
 )
 
 /**
@@ -58,6 +69,14 @@ object ServiceLocator {
             .build()
     }
 
+    /** Для файлов отдельный клиент: Chucker держал бы всё тело ответа в памяти. */
+    private val downloadClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
     private val breweryApi: BreweryApi by lazy {
         Retrofit.Builder()
             .baseUrl(BreweryApi.BASE_URL)
@@ -80,4 +99,12 @@ object ServiceLocator {
 
     val getBreweries by lazy { GetBreweriesUseCase(breweryRepository) }
     val getBreweryDetails by lazy { GetBreweryDetailsUseCase(breweryRepository) }
+
+    val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl(appContext.profileDataStore) }
+    val profileFilesRepository: ProfileFilesRepository by lazy {
+        ProfileFilesRepositoryImpl(appContext, downloadClient)
+    }
+    val downloadResume by lazy { DownloadResumeUseCase(profileFilesRepository) }
+
+    val classReminderScheduler: ClassReminderScheduler by lazy { AlarmClassReminderScheduler(appContext) }
 }
